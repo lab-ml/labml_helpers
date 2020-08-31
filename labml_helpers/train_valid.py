@@ -8,7 +8,7 @@ from torch import nn
 import labml.utils.pytorch as pytorch_utils
 from labml import tracker, monit
 from labml.configs import option, meta_config
-from labml.helpers.training_loop import TrainingLoopConfigs
+from .training_loop import TrainingLoopConfigs
 from labml.utils.pytorch import get_device
 
 
