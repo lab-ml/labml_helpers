@@ -1,5 +1,5 @@
-.. image:: https://badge.fury.io/py/labml_helpers.svg
-    :target: https://badge.fury.io/py/labml_helpers
+.. image:: https://badge.fury.io/py/labml-helpers.svg
+    :target: https://badge.fury.io/py/labml-helpers
 .. image:: https://pepy.tech/badge/labml_helpers
     :target: https://pepy.tech/project/labml_helpers
 
