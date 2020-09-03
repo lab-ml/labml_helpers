@@ -21,12 +21,16 @@ class TrainingLoopIterator(Collection):
         return self
 
     def __next__(self):
-        if self.i is None:
-            self.i = self.start
-        elif self.step is not None:
-            self.i += self.step
+        if self.step is not None:
+            if self.i is None:
+                self.i = self.start
+            else:
+                self.i += 1
         else:
-            self.i += 1
+            if self.i is None:
+                self.i = 0
+            else:
+                self.i += self.step
 
         if self.i >= self.total:
             raise StopIteration()
