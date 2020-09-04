@@ -25,12 +25,12 @@ class TrainingLoopIterator(Collection):
             if self.i is None:
                 self.i = self.start
             else:
-                self.i += 1
+                self.i += self.step
         else:
             if self.i is None:
                 self.i = 0
             else:
-                self.i += self.step
+                self.i += 1
 
         if self.i >= self.total:
             raise StopIteration()
