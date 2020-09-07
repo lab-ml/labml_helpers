@@ -31,7 +31,7 @@ class TextDataset:
         self.stoi = {t: i for i, t in enumerate(self.standard_tokens)}
 
         with monit.section("Tokenize"):
-            tokens = self.tokenizer(self.train)
+            tokens = self.tokenizer(self.train) + self.tokenizer(self.valid)
             tokens = sorted(list(set(tokens)))
 
         for t in monit.iterate("Build vocabulary", tokens):
