@@ -191,39 +191,67 @@ class Trainer:
                  data_loader: torch.utils.data.DataLoader,
                  is_increment_global_step: bool,
                  log_interval: Optional[int],
-                 update_interval: Optional[int]):
+                 update_interval: Optional[int],
+                 inner_iterations: int):
         self.batch_step = batch_step
         self.log_interval = log_interval
         self.update_interval = update_interval
         self.is_increment_global_step = is_increment_global_step
         self.data_loader = data_loader
         self.name = name
+        self.__total_steps = len(data_loader)
+        self.__iteration_idx = -1
+        self.__iterable = None
+        self.__n_iteration = -1
+        self.inner_iterations = inner_iterations
 
     def __call__(self):
+        if self.__iterable is None or self.__n_iteration >= self.inner_iterations:
+            self.__iterable = iter(self.data_loader)
+            self.__iteration_idx = 0
+            self.__n_iteration = 0
         self.batch_step.prepare_for_iteration()
         with torch.set_grad_enabled(MODE_STATE.is_train):
-            self.iterate()
+            self.__iterate()
 
-    def iterate(self):
+    def __iterate(self):
+        self.__n_iteration += 1
+        if self.__iteration_idx >= self.__n_iteration * self.__total_steps / self.inner_iterations:
+            return
+
         stats = self.batch_step.init_stats()
         is_updated = True
 
-        for i, batch in monit.enum(self.name, self.data_loader):
-            with Mode(is_log_activations=(MODE_STATE.is_log_activations and i == 0)):
-                update = self.batch_step.process(batch)
+        partial_count = 0
+        with monit.section(self.name, is_partial=True):
+            if self.__iteration_idx == 0:
+                monit.progress(0)
+            while True:
+                i = self.__iteration_idx
+                batch = next(self.__iterable)
 
-            is_updated = False
-            self.batch_step.update_stats(stats, update)
+                with Mode(is_log_activations=(MODE_STATE.is_log_activations and i == 0)):
+                    update = self.batch_step.process(batch)
 
-            if self.is_increment_global_step:
-                tracker.add_global_step(update['samples'])
+                is_updated = False
+                self.batch_step.update_stats(stats, update)
 
-            if self.update_interval is not None and (i + 1) % self.update_interval == 0:
-                self.batch_step.update()
-                is_updated = True
+                if self.is_increment_global_step:
+                    tracker.add_global_step(update['samples'])
 
-            if self.log_interval is not None and (i + 1) % self.log_interval == 0:
-                tracker.save()
+                if self.update_interval is not None and (i + 1) % self.update_interval == 0:
+                    self.batch_step.update()
+                    is_updated = True
+
+                if self.log_interval is not None and (i + 1) % self.log_interval == 0:
+                    tracker.save()
+
+                self.__iteration_idx += 1
+                partial_count += 1
+                monit.progress(self.__iteration_idx / self.__total_steps)
+
+                if self.__iteration_idx >= self.__n_iteration * self.__total_steps / self.inner_iterations:
+                    break
 
         if not is_updated:
             self.batch_step.update()
@@ -252,11 +280,13 @@ class TrainValidConfigs(TrainingLoopConfigs):
     train_loader: torch.utils.data.DataLoader
     valid_loader: torch.utils.data.DataLoader
 
+    inner_iterations: int = 1
+
     is_log_parameters: bool = True
     is_log_activations: bool = True
 
-    def run(self):
-        for _ in self.training_loop:
+    def run_step(self):
+        for i in range(self.inner_iterations):
             with Mode(is_train=True,
                       is_log_parameters=self.is_log_parameters,
                       is_log_activations=self.is_log_activations):
@@ -264,6 +294,10 @@ class TrainValidConfigs(TrainingLoopConfigs):
                     self.trainer()
             with tracker.namespace('valid'):
                 self.validator()
+
+    def run(self):
+        for _ in self.training_loop:
+            self.run_step()
 
 
 @option(TrainValidConfigs.batch_step)
@@ -281,7 +315,8 @@ def trainer(c: TrainValidConfigs):
                    data_loader=c.train_loader,
                    is_increment_global_step=True,
                    log_interval=c.train_log_interval,
-                   update_interval=c.train_update_interval)
+                   update_interval=c.train_update_interval,
+                   inner_iterations=c.inner_iterations)
 
 
 @option(TrainValidConfigs.validator)
@@ -291,7 +326,8 @@ def validator(c: TrainValidConfigs):
                    data_loader=c.valid_loader,
                    is_increment_global_step=False,
                    log_interval=None,
-                   update_interval=None)
+                   update_interval=None,
+                   inner_iterations=c.inner_iterations)
 
 
 @option(TrainValidConfigs.loop_count)
