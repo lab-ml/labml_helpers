@@ -1,4 +1,4 @@
-from typing import Optional, Callable, Dict
+from typing import Optional, Callable, Dict, Tuple
 
 import numpy as np
 import torch.optim
@@ -28,7 +28,10 @@ class BatchStepProtocol:
     def log_stats(self, stats: Dict[str, any]):
         pass
 
-    def process(self, batch: any):
+    def process(self, batch: any, state: any) -> Tuple[Dict[str, any], any]:
+        """
+        Returns a tuple of stats and state
+        """
         raise NotImplementedError()
 
     def update(self):
@@ -53,6 +56,8 @@ class BatchStep(BatchStepProtocol):
     def log_stats(self, stats: any):
         if self.accuracy_func is not None:
             tracker.add("accuracy.", np.sum(stats['correct']) / np.sum(stats['samples']))
+        if 'loss' in stats:
+            tracker.add("loss.epoch.", np.sum(stats['loss']) / np.sum(stats['samples']))
 
     def prepare_for_iteration(self):
         if MODE_STATE.is_train:
@@ -60,7 +65,7 @@ class BatchStep(BatchStepProtocol):
         else:
             self.model.eval()
 
-    def process(self, batch: any):
+    def process(self, batch: any, state: any):
         device = get_device(self.model)
         data, target = batch
         data, target = data.to(device), target.to(device)
@@ -78,13 +83,14 @@ class BatchStep(BatchStepProtocol):
         if self.accuracy_func is not None:
             stats['correct'] = self.accuracy_func(output, target)
 
+        stats['loss'] = loss.detach().item() * stats['samples']
         tracker.add("loss.", loss)
 
         if MODE_STATE.is_train:
             with monit.section('backward'):
                 loss.backward()
 
-        return stats
+        return stats, None
 
     def update(self):
         if not MODE_STATE.is_train:
@@ -204,6 +210,7 @@ class Trainer:
         self.__iterable = None
         self.__n_iteration = -1
         self.inner_iterations = inner_iterations
+        self.__state = None
 
     def __call__(self):
         if self.__iterable is None or self.__n_iteration >= self.inner_iterations:
@@ -211,6 +218,7 @@ class Trainer:
             self.__iteration_idx = 0
             self.__n_iteration = 0
         self.batch_step.prepare_for_iteration()
+        self.__state = None
         with torch.set_grad_enabled(MODE_STATE.is_train):
             self.__iterate()
 
@@ -231,7 +239,7 @@ class Trainer:
                 batch = next(self.__iterable)
 
                 with Mode(is_log_activations=(MODE_STATE.is_log_activations and i == 0)):
-                    update = self.batch_step.process(batch)
+                    update, self.__state = self.batch_step.process(batch, self.__state)
 
                 is_updated = False
                 self.batch_step.update_stats(stats, update)
