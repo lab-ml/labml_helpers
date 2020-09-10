@@ -4,7 +4,9 @@ import torch
 
 
 def detach(s: Union[Tuple, List, torch.Tensor]):
-    if isinstance(s, torch.Tensor):
+    if s is None:
+        return None
+    elif isinstance(s, torch.Tensor):
         return s.detach()
     elif isinstance(s, tuple):
         return tuple(detach(e) for e in s)
