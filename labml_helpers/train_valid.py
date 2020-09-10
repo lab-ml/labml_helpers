@@ -211,12 +211,14 @@ class Trainer:
         self.__n_iteration = -1
         self.inner_iterations = inner_iterations
         self.__state = None
+        self.__stats = {}
 
     def __call__(self):
         if self.__iterable is None or self.__n_iteration >= self.inner_iterations:
             self.__iterable = iter(self.data_loader)
             self.__iteration_idx = 0
             self.__n_iteration = 0
+            self.stats = self.batch_step.init_stats()
         self.batch_step.prepare_for_iteration()
         self.__state = None
         with torch.set_grad_enabled(MODE_STATE.is_train):
@@ -227,7 +229,6 @@ class Trainer:
         if self.__iteration_idx >= self.__n_iteration * self.__total_steps / self.inner_iterations:
             return
 
-        stats = self.batch_step.init_stats()
         is_updated = True
 
         partial_count = 0
@@ -242,7 +243,7 @@ class Trainer:
                     update, self.__state = self.batch_step.process(batch, self.__state)
 
                 is_updated = False
-                self.batch_step.update_stats(stats, update)
+                self.batch_step.update_stats(self.stats, update)
 
                 if self.is_increment_global_step:
                     tracker.add_global_step(update['samples'])
@@ -264,7 +265,7 @@ class Trainer:
         if not is_updated:
             self.batch_step.update()
 
-        self.batch_step.log_stats(stats)
+        self.batch_step.log_stats(self.stats)
 
 
 class TrainValidConfigs(TrainingLoopConfigs):

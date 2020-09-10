@@ -47,7 +47,7 @@ class TextDataset:
         return torch.tensor([self.stoi[s] for s in tokens], dtype=torch.long)
 
     def __repr__(self):
-        return f'{len(self.train)}, {len(self.valid)} - {str(self.path)}'
+        return f'{len(self.train) / 1_000_000 :,.2f}M, {len(self.valid) / 1_000_000 :,.2f}M - {str(self.path)}'
 
 
 class SequentialDataLoader(IterableDataset):
