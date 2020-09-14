@@ -54,7 +54,7 @@ class BatchStep(BatchStepProtocol):
         tracker.set_scalar("accuracy.*", True)
 
     def log_stats(self, stats: any):
-        if self.accuracy_func is not None:
+        if 'correct' in stats:
             tracker.add("accuracy.", np.sum(stats['correct']) / np.sum(stats['samples']))
         if 'loss' in stats:
             tracker.add("loss.epoch.", np.sum(stats['loss']) / np.sum(stats['samples']))
@@ -65,7 +65,7 @@ class BatchStep(BatchStepProtocol):
         else:
             self.model.eval()
 
-    def process(self, batch: any, state: any):
+    def calculate_loss(self, batch: any, state: any):
         device = get_device(self.model)
         data, target = batch
         data, target = data.to(device), target.to(device)
@@ -86,11 +86,16 @@ class BatchStep(BatchStepProtocol):
         stats['loss'] = loss.detach().item() * stats['samples']
         tracker.add("loss.", loss)
 
+        return loss, stats, None
+
+    def process(self, batch: any, state: any):
+        loss, stats, new_state = self.calculate_loss(batch, state)
+
         if MODE_STATE.is_train:
             with monit.section('backward'):
                 loss.backward()
 
-        return stats, None
+        return stats, new_state
 
     def update(self):
         if not MODE_STATE.is_train:
@@ -337,6 +342,14 @@ def validator(c: TrainValidConfigs):
                    log_interval=None,
                    update_interval=None,
                    inner_iterations=c.inner_iterations)
+
+
+@option(TrainValidConfigs.optimizer)
+def optimizer(c: TrainValidConfigs):
+    from labml_helpers.optimizer import OptimizerConfigs
+    opt_conf = OptimizerConfigs()
+    opt_conf.parameters = c.model.parameters()
+    return opt_conf
 
 
 @option(TrainValidConfigs.loop_count)
