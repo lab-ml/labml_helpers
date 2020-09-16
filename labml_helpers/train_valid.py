@@ -301,6 +301,8 @@ class TrainValidConfigs(TrainingLoopConfigs):
 
     def run_step(self):
         for i in range(self.inner_iterations):
+            with tracker.namespace('sample'):
+                self.sample()
             with Mode(is_train=True,
                       is_log_parameters=self.is_log_parameters,
                       is_log_activations=self.is_log_activations):
@@ -312,6 +314,9 @@ class TrainValidConfigs(TrainingLoopConfigs):
     def run(self):
         for _ in self.training_loop:
             self.run_step()
+
+    def sample(self):
+        pass
 
 
 @option(TrainValidConfigs.batch_step)
