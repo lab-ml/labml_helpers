@@ -56,7 +56,7 @@ class NoamOpt:
 
 @option(OptimizerConfigs.optimizer, 'Noam')
 def noam_optimizer(c: OptimizerConfigs):
-    optimizer = torch.optim.Adam(c.parameters, lr=c.learning_rate)
+    optimizer = torch.optim.Adam(c.parameters, lr=0.0)
     return NoamOpt(c.d_model, 1, 2000, optimizer)
 
 
@@ -66,7 +66,7 @@ def _test_noam_optimizer():
 
     opts = [NoamOpt(512, 1, 4000, None),
             NoamOpt(512, 1, 8000, None),
-            NoamOpt(256, 1, 4000, None)]
+            NoamOpt(2048, 1, 2000, None)]
     plt.plot(np.arange(1, 20000), [[opt.rate(i) for opt in opts] for i in range(1, 20000)])
     plt.legend(["512:4000", "512:8000", "256:4000"])
     plt.title("Optimizer")

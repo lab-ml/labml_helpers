@@ -244,7 +244,7 @@ class Trainer:
                 i = self.__iteration_idx
                 batch = next(self.__iterable)
 
-                with Mode(is_log_activations=(MODE_STATE.is_log_activations and i == 0)):
+                with Mode(is_log_activations=(MODE_STATE.is_log_activations and partial_count == 0)):
                     update, self.__state = self.batch_step.process(batch, self.__state)
 
                 is_updated = False
