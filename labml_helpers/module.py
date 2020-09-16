@@ -7,6 +7,8 @@ class Module(torch.nn.Module):
     r"""
     Wraps ``torch.nn.Module`` to overload ``__call__`` instead of
     ``forward`` for better type checking.
+    
+    `PyTorch Github issue for clarification <https://github.com/pytorch/pytorch/issues/44605>`_
     """
 
     def _forward_unimplemented(self, *input: Any) -> None:
