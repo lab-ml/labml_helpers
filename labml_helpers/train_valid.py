@@ -56,8 +56,6 @@ class BatchStep(BatchStepProtocol):
     def log_stats(self, stats: any):
         if 'correct' in stats:
             tracker.add("accuracy.", np.sum(stats['correct']) / np.sum(stats['samples']))
-        if 'loss' in stats:
-            tracker.add("loss.epoch.", np.sum(stats['loss']) / np.sum(stats['samples']))
 
     def prepare_for_iteration(self):
         if MODE_STATE.is_train:
@@ -83,7 +81,6 @@ class BatchStep(BatchStepProtocol):
         if self.accuracy_func is not None:
             stats['correct'] = self.accuracy_func(output, target)
 
-        stats['loss'] = loss.detach().item() * stats['samples']
         tracker.add("loss.", loss)
 
         return loss, stats, None
