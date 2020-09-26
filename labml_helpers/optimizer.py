@@ -10,7 +10,7 @@ class OptimizerConfigs(BaseConfigs):
     learning_rate: float = 0.01
     momentum: float = 0.5
     parameters: any
-    d_model: int = None
+    d_model: int
     betas: Tuple[float, float] = (0.9, 0.999)
     eps: float = 1e-08
 
