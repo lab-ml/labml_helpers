@@ -1,3 +1,5 @@
+from typing import Tuple
+
 import torch
 
 from labml.configs import BaseConfigs, option, meta_config
@@ -9,6 +11,8 @@ class OptimizerConfigs(BaseConfigs):
     momentum: float = 0.5
     parameters: any
     d_model: int = None
+    betas: Tuple[float, float] = (0.9, 0.999)
+    eps: float = 1e-08
 
     def __init__(self):
         super().__init__(_primary='optimizer')
@@ -24,7 +28,8 @@ def sgd_optimizer(c: OptimizerConfigs):
 
 @option(OptimizerConfigs.optimizer, 'Adam')
 def adam_optimizer(c: OptimizerConfigs):
-    return torch.optim.Adam(c.parameters, c.learning_rate)
+    return torch.optim.Adam(c.parameters, lr=c.learning_rate,
+                            betas=c.betas, eps=c.eps)
 
 
 class NoamOpt:
@@ -56,7 +61,7 @@ class NoamOpt:
 
 @option(OptimizerConfigs.optimizer, 'Noam')
 def noam_optimizer(c: OptimizerConfigs):
-    optimizer = torch.optim.Adam(c.parameters, lr=0.0)
+    optimizer = torch.optim.Adam(c.parameters, lr=0.0, betas=c.betas, eps=c.eps)
     return NoamOpt(c.d_model, 1, 2000, optimizer)
 
 
