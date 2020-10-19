@@ -305,8 +305,9 @@ class TrainValidConfigs(TrainingLoopConfigs):
                       is_log_activations=self.is_log_activations):
                 with tracker.namespace('train'):
                     self.trainer()
-            with tracker.namespace('valid'):
-                self.validator()
+            if self.validator:
+                with tracker.namespace('valid'):
+                    self.validator()
 
     def run(self):
         for _ in self.training_loop:
