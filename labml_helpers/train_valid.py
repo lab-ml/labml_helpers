@@ -65,8 +65,7 @@ class BatchStep(BatchStepProtocol):
 
     def calculate_loss(self, batch: any, state: any):
         device = get_device(self.model)
-        data, target = batch
-        data, target = data.to(device), target.to(device)
+        data, target = batch[0].to(device), batch[1].to(device)
         stats = {
             'samples': len(data)
         }
@@ -232,8 +231,9 @@ class Trainer:
             return
 
         is_updated = True
+        is_activations_logged = False
+        is_parameters_logged = False
 
-        partial_count = 0
         with monit.section(self.name, is_partial=True):
             if self.__iteration_idx == 0:
                 monit.progress(0)
@@ -241,7 +241,8 @@ class Trainer:
                 i = self.__iteration_idx
                 batch = next(self.__iterable)
 
-                with Mode(is_log_activations=(MODE_STATE.is_log_activations and partial_count == 0)):
+                with Mode(is_log_activations=(MODE_STATE.is_log_activations and not is_activations_logged)):
+                    is_activations_logged = is_activations_logged or MODE_STATE.is_log_activations
                     update, self.__state = self.batch_step.process(batch, self.__state)
 
                 is_updated = False
@@ -251,21 +252,23 @@ class Trainer:
                     tracker.add_global_step(update['samples'])
 
                 if self.update_interval is not None and (i + 1) % self.update_interval == 0:
-                    self.batch_step.update()
+                    with Mode(is_log_parameters=(MODE_STATE.is_log_parameters and not is_parameters_logged)):
+                        is_parameters_logged = is_parameters_logged or MODE_STATE.is_log_parameters
+                        self.batch_step.update()
                     is_updated = True
 
                 if self.log_interval is not None and (i + 1) % self.log_interval == 0:
                     tracker.save()
 
                 self.__iteration_idx += 1
-                partial_count += 1
                 monit.progress(self.__iteration_idx / self.__total_steps)
 
                 if self.__iteration_idx >= self.__n_iteration * self.__total_steps / self.inner_iterations:
                     break
 
         if not is_updated:
-            self.batch_step.update()
+            with Mode(is_log_parameters=(MODE_STATE.is_log_parameters and not is_parameters_logged)):
+                self.batch_step.update()
 
         self.batch_step.log_stats(self.stats)
 
