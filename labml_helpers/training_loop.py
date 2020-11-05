@@ -5,7 +5,7 @@ import typing
 
 from labml import tracker, logger, experiment, monit
 from labml.configs import BaseConfigs, meta_config, option
-from labml.internal.logger import Loop
+from labml.internal.monitor import Loop
 from labml.logger import Text
 
 
