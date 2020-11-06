@@ -1,5 +1,5 @@
-from pathlib import PurePath
-from typing import List, Callable, Dict
+from pathlib import PurePath, Path
+from typing import List, Callable, Dict, Optional
 
 import torch
 from torch.utils.data import IterableDataset
@@ -77,3 +77,55 @@ class SequentialDataLoader(IterableDataset):
         target = self.data[self.idx + 1: i + 1]
         self.idx = i
         return data, target
+
+    def __getitem__(self, idx):
+        seq_len = min(self.seq_len, self.data.shape[0] - 1 - idx)
+        i = idx + seq_len
+        data = self.data[idx: i]
+        target = self.data[idx + 1: i + 1]
+        return data, target
+
+
+class TextFileDataset(TextDataset):
+    standard_tokens = []
+
+    @staticmethod
+    def download(url: str, path: Path):
+        import urllib.request
+        if not path.parent.exists():
+            path.parent.mkdir(parents=True)
+        with monit.section("Download") as s:
+            def reporthook(count, block_size, total_size):
+                s.progress(count * block_size / total_size)
+
+            urllib.request.urlretrieve(url, path, reporthook=reporthook)
+
+    def __init__(self, path: PurePath, tokenizer: Callable, *,
+                 url: Optional[str] = None,
+                 filter_subset: Optional[int] = None):
+        path = Path(path)
+        if not path.exists():
+            if not url:
+                raise FileNotFoundError(str(path))
+            else:
+                self.download(url, path)
+
+        with monit.section("Load data"):
+            text = self.load(path)
+            if filter_subset:
+                text = text[:filter_subset]
+            split = int(len(text) * .9)
+            train = text[:split]
+            valid = text[split:]
+
+        super().__init__(path, tokenizer, train, valid, '')
+
+
+def _test_tiny_shakespeare():
+    from labml import lab
+    _ = TextFileDataset(lab.get_data_path() / 'tiny_shakespeare.txt', lambda x: list(x),
+                        url='https://raw.githubusercontent.com/karpathy/char-rnn/master/data/tinyshakespeare/input.txt')
+
+
+if __name__ == '__main__':
+    _test_tiny_shakespeare()
