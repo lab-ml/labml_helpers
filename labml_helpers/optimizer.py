@@ -1,6 +1,7 @@
 from typing import Tuple
 
 import torch
+from labml import tracker
 
 from labml.configs import BaseConfigs, option, meta_config
 
@@ -13,6 +14,7 @@ class OptimizerConfigs(BaseConfigs):
     d_model: int
     betas: Tuple[float, float] = (0.9, 0.999)
     eps: float = 1e-08
+    step_factor: int = 1024
 
     def __init__(self):
         super().__init__(_primary='optimizer')
@@ -33,27 +35,24 @@ def adam_optimizer(c: OptimizerConfigs):
 
 
 class NoamOpt:
-    def __init__(self, model_size: int, factor: float, warmup: int, optimizer):
+    def __init__(self, model_size: int, learning_rate: float, warmup: int, step_factor: int, optimizer):
+        self.step_factor = step_factor
         self.optimizer = optimizer
-        self._step = 0
         self.warmup = warmup
-        self.factor = factor
+        self.learning_rate = learning_rate
         self.model_size = model_size
         self._rate = 0
 
     def step(self):
-        self._step += 1
-        rate = self.rate()
+        rate = self.rate(tracker.get_global_step() / self.step_factor)
         for p in self.optimizer.param_groups:
             p['lr'] = rate
         self._rate = rate
         self.optimizer.step()
 
-    def rate(self, step=None):
-        if step is None:
-            step = self._step
-        return self.factor * (self.model_size ** (-0.5) *
-                              min(step ** (-0.5), step * self.warmup ** (-1.5)))
+    def rate(self, step):
+        factor = self.model_size ** (-0.5) * min(step ** (-0.5), step * self.warmup ** (-1.5))
+        return self.learning_rate * factor
 
     def zero_grad(self):
         self.optimizer.zero_grad()
@@ -62,7 +61,7 @@ class NoamOpt:
 @option(OptimizerConfigs.optimizer, 'Noam')
 def noam_optimizer(c: OptimizerConfigs):
     optimizer = torch.optim.Adam(c.parameters, lr=0.0, betas=c.betas, eps=c.eps)
-    return NoamOpt(c.d_model, 1, 2000, optimizer)
+    return NoamOpt(c.d_model, 1, 2000, c.step_factor, optimizer)
 
 
 def _test_noam_optimizer():
