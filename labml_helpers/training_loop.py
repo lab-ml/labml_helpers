@@ -95,7 +95,7 @@ class TrainingLoop:
         except ValueError:
             pass
         tracker.save()
-        logger.log()
+        tracker.new_line()
         if self.__is_save_models:
             logger.log("Saving model...")
             experiment.save_checkpoint()
@@ -131,7 +131,7 @@ class TrainingLoop:
             tracker.save()
             self.__last_write_step = global_step
         if global_step - self.__last_new_line_step >= self.__log_new_line_interval:
-            logger.log()
+            tracker.new_line()
             self.__last_new_line_step = global_step
         # if self.is_interval(self.__log_write_interval, global_step):
         #     tracker.save()
