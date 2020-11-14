@@ -4,17 +4,21 @@ import torch
 from labml.configs import BaseConfigs, option
 
 
+class SetSeed:
+    def __init__(self, seed: int):
+        self.seed = seed
+
+    def __call__(self):
+        torch.manual_seed(self.seed)
+        np.random.seed(self.seed)
+
+
 class SeedConfigs(BaseConfigs):
     seed: int = 5
 
-    set_seed = 'set_seed'
-
-    def __init__(self):
-        super().__init__(_primary='set_seed')
+    set = '_set_seed'
 
 
-@option(SeedConfigs.set_seed)
-def set_seed(c: SeedConfigs):
-    torch.manual_seed(c.seed)
-    np.random.seed(c.seed)
-    return c.seed
+@option(SeedConfigs.set)
+def _set_seed(c: SeedConfigs):
+    return SetSeed(c.seed)
