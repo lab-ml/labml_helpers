@@ -1,48 +1,25 @@
-import dataclasses
-
-import torch
-
-from labml import tracker
-from labml_helpers.train_valid2 import StateModule
+from abc import ABC
 
 
-class Metric(StateModule):
-    pass
-
-
-@dataclasses.dataclass
-class AccuracyState:
-    samples: int = 0
-    correct: int = 0
-
-    def reset(self):
-        self.samples = 0
-        self.correct = 0
-
-
-class Accuracy(Metric):
-    data: AccuracyState
-
+class StateModule:
     def __init__(self):
-        super().__init__()
+        pass
 
-    def __call__(self, output: torch.Tensor, target: torch.Tensor):
-        output = output.view(-1, output.shape[-1])
-        target = target.view(-1)
-        pred = output.argmax(dim=-1)
-        self.data.correct += pred.eq(target).sum().item()
-        self.data.samples += len(target)
+    # def __call__(self):
+    #     raise NotImplementedError
 
-    def create_state(self):
-        return AccuracyState()
+    def create_state(self) -> any:
+        raise NotImplementedError
 
     def set_state(self, data: any):
-        self.data = data
+        raise NotImplementedError
 
     def on_epoch_start(self):
-        self.data.reset()
+        raise NotImplementedError
 
     def on_epoch_end(self):
-        if self.data.samples == 0:
-            return
-        tracker.add("accuracy.", self.data.correct / self.data.samples)
+        raise NotImplementedError
+
+
+class Metric(StateModule, ABC):
+    pass
