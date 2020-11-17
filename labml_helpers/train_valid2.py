@@ -1,4 +1,4 @@
-from typing import Optional, Dict, List, Union, Callable, Tuple
+from typing import Optional, Dict, List, Callable, Any
 
 import torch.optim
 import torch.utils.data
@@ -6,28 +6,9 @@ from torch import nn
 
 import labml.utils.pytorch as pytorch_utils
 from labml import tracker, monit
-from labml.configs import option, meta_config, BaseConfigs
+from labml.configs import option, meta_config
+from .metrics import StateModule
 from .training_loop import TrainingLoopConfigs
-
-
-class StateModule:
-    def __init__(self):
-        pass
-
-    # def __call__(self):
-    #     raise NotImplementedError
-
-    def create_state(self) -> any:
-        raise NotImplementedError
-
-    def set_state(self, data: any):
-        raise NotImplementedError
-
-    def on_epoch_start(self):
-        raise NotImplementedError
-
-    def on_epoch_end(self):
-        raise NotImplementedError
 
 
 class ModeState:
@@ -70,9 +51,6 @@ class ModeState:
                     is_log_parameters=is_log_parameters,
                     is_log_activations=is_log_activations,
                     is_optimize=is_optimize)
-
-
-MODE_STATE = ModeState()
 
 
 class Mode:
@@ -124,142 +102,49 @@ def hook_model_outputs(mode: ModeState, model: torch.nn.Module, model_name: str 
 class Trainer:
     def __init__(self, *,
                  name: str,
+                 mode: ModeState,
                  data_loader: torch.utils.data.DataLoader,
-                 is_increment_global_step: bool,
-                 log_interval: Optional[int],
-                 update_interval: Optional[int],
                  inner_iterations: int,
                  state_modules: List[StateModule],
-                 prepare_for_iteration: Callable,
-                 step: Callable[[any, int], Tuple[torch.Tensor, int]],
-                 backward: Callable[[torch.Tensor], None],
-                 optimizer_step: Callable[[torch.Tensor], None]):
-        self.backward = backward
-        self.optimizer_step = optimizer_step
-        self.step = step
-        self.prepare_for_iteration = prepare_for_iteration
-        self.log_interval = log_interval
-        self.update_interval = update_interval
-        self.is_increment_global_step = is_increment_global_step
-        self.data_loader = data_loader
+                 step: Callable[[any, 'BatchIndex'], None]):
+        self.mode = mode
         self.name = name
+        self.step = step
+        self.data_loader = data_loader
         self.state_modules = state_modules
-        self.__total_steps = len(data_loader)
-        self.__iteration_idx = -1
         self.__iterable = None
-        self.__n_iteration = -1
-        self.inner_iterations = inner_iterations
         self.__states = [sm.create_state() for sm in self.state_modules]
+        self._batch_index = BatchIndex(len(data_loader), inner_iterations)
 
     def __call__(self):
         for sm, s in zip(self.state_modules, self.__states):
             sm.set_state(s)
 
-        if self.__iterable is None or self.__n_iteration >= self.inner_iterations:
+        if self.__iterable is None or self._batch_index.completed:
             self.__iterable = iter(self.data_loader)
-            self.__iteration_idx = 0
-            self.__n_iteration = 0
+            self._batch_index.reset()
             for sm in self.state_modules:
                 sm.on_epoch_start()
-        self.prepare_for_iteration()
-        with torch.set_grad_enabled(MODE_STATE.is_train):
+        with torch.set_grad_enabled(self.mode.is_train):
             self.__iterate()
 
-    def __iterate(self):
-        self.__n_iteration += 1
-        if self.__iteration_idx >= self.__n_iteration * self.__total_steps / self.inner_iterations:
-            return
-
-        is_updated = True
-        is_activations_logged = False
-        is_parameters_logged = False
-
-        with monit.section(self.name, is_partial=True):
-            if self.__iteration_idx == 0:
-                monit.progress(0)
-            while True:
-                i = self.__iteration_idx
-                batch = next(self.__iterable)
-
-                # TODO: Calculate
-                # is_update
-                # is_log_activations
-                # is_log_parameters
-                # TODO: Change
-                # is_logged = is_logged or is_log
-                is_update = MODE_STATE.is_train and (
-                        self.update_interval is not None and (i + 1) % self.update_interval == 0)
-                is_log_activations = MODE_STATE.is_log_activations and not is_activations_logged
-                # TODO: do this on validation also
-                is_log_parameters = is_update and MODE_STATE.is_log_parameters and not is_parameters_logged
-                #
-                with Mode(is_log_activations=(MODE_STATE.is_log_activations and not is_activations_logged)):
-                    is_activations_logged = is_activations_logged or MODE_STATE.is_log_activations
-                    with Mode(is_log_parameters=(MODE_STATE.is_log_parameters and not is_parameters_logged)):
-                        if self.update_interval is not None and (i + 1) % self.update_interval == 0:
-                            is_parameters_logged = is_parameters_logged or MODE_STATE.is_log_parameters
-                            if MODE_STATE.is_train:
-                                self.optimizer_step(loss)
-                        is_updated = True
-                    self.step(batch, i)
-
-                is_updated = False
-
-                if self.update_interval is not None and (i + 1) % self.update_interval == 0:
-                    with Mode(is_log_parameters=(MODE_STATE.is_log_parameters and not is_parameters_logged)):
-                        is_parameters_logged = is_parameters_logged or MODE_STATE.is_log_parameters
-                        if MODE_STATE.is_train:
-                            self.optimizer_step(loss)
-                    is_updated = True
-
-                if self.log_interval is not None and (i + 1) % self.log_interval == 0:
-                    tracker.save()
-
-                self.__iteration_idx += 1
-                monit.progress(self.__iteration_idx / self.__total_steps)
-
-                if self.__iteration_idx >= self.__n_iteration * self.__total_steps / self.inner_iterations:
-                    break
-
-        if not is_updated:
-            with Mode(is_log_parameters=(MODE_STATE.is_log_parameters and not is_parameters_logged)):
-                if MODE_STATE.is_train:
-                    self.optimizer_step(loss)
-
-        if self.__n_iteration >= self.inner_iterations:
+        if self._batch_index.completed:
             for sm in self.state_modules:
                 sm.on_epoch_end()
 
+    def __iterate(self):
+        with monit.section(self.name, is_partial=True):
+            if self._batch_index.idx == 0:
+                monit.progress(0)
+            while not self._batch_index.iteration_completed:
+                batch = next(self.__iterable)
 
-class TrainerConfigs(BaseConfigs):
-    name: str
-    log_interval: int = 10
-    update_interval: int = 1
-    data_loader: torch.utils.data.DataLoader
-    is_increment_global_step: bool
-    inner_iterations: int
-    state_modules: List[StateModule]
-    prepare_for_iteration: Callable
-    step: Callable[[any, int], Tuple[torch.Tensor, int]]
-    backward: Callable[[torch.Tensor], None]
-    optimizer_step: Callable[[torch.Tensor], None]
+                self.step(batch, self._batch_index)
 
-    trainer: Trainer
+                self._batch_index.step()
+                monit.progress(self._batch_index.epoch_progress)
 
-
-@option(TrainerConfigs.trainer)
-def _trainer(c: TrainerConfigs):
-    return Trainer(name=c.name,
-                   data_loader=c.data_loader,
-                   is_increment_global_step=c.is_increment_global_step,
-                   log_interval=c.log_interval,
-                   update_interval=c.update_interval,
-                   inner_iterations=c.inner_iterations,
-                   state_modules=c.state_modules,
-                   prepare_for_iteration=c.prepare_for_iteration,
-                   step=c.step,
-                   backward=c.backward,
-                   optimizer_step=c.optimizer_step)
+        self._batch_index.step_inner()
 
 
 class BatchIndex:
@@ -268,48 +153,55 @@ class BatchIndex:
     iteration: int
     total_iterations: int
 
-    @property
-    def total_inner(self) -> int:
-        total_inner = (self.total + self.total_iterations - 1) // self.total_iterations
-        # last iteration
-        if self.iteration == self.total_iterations - 1:
-            total_inner = self.total - self.iteration * total_inner
-
-        return total_inner
-
-    @property
-    def inner(self) -> int:
-        total_inner = (self.total + self.total_iterations - 1) // self.total_iterations
-        return self.idx % total_inner
+    def __init__(self, total: int, total_iterations: int):
+        self.total_iterations = total_iterations
+        self.total = total
 
     def is_interval(self, interval: int):
+        if interval <= 0:
+            return False
         if self.idx + 1 == self.total:
             return True
         else:
             return (self.idx + 1) % interval == 0
 
-    def should_update(self, update_interval: Optional[int]):
-        if self.idx + 1 == self.total:
-            return True
-        elif update_interval is None:
-            return False
-        else:
-            return (self.idx + 1) % update_interval == 0
+    @property
+    def is_last(self):
+        return self.idx + 1 == self.total
+
+    @property
+    def completed(self):
+        return self.iteration >= self.total_iterations
+
+    @property
+    def iteration_completed(self):
+        # // is important so that the last step happens on the last iteration
+        return self.idx >= (self.iteration + 1) * self.total // self.total_iterations
+
+    @property
+    def epoch_progress(self):
+        return self.idx / self.total
+
+    def step(self):
+        self.idx += 1
+
+    def step_inner(self):
+        self.iteration += 1
+
+    def reset(self):
+        self.idx = 0
+        self.iteration = 0
 
 
 class TrainValidConfigs(TrainingLoopConfigs):
-    state_modules: List[StateModule] = []
-    optimizer: torch.optim.Adam
-    model: Union[nn.Module, Dict[str, nn.Module]]
-    device: torch.device
+    state_modules: List[StateModule]
 
-    loss_func: nn.Module
     mode: ModeState
 
     epochs: int = 10
 
-    trainer: TrainerConfigs
-    validator: TrainerConfigs
+    trainer: Trainer
+    validator: Trainer
     train_loader: torch.utils.data.DataLoader
     valid_loader: torch.utils.data.DataLoader
 
@@ -318,37 +210,83 @@ class TrainValidConfigs(TrainingLoopConfigs):
 
     inner_iterations: int = 1
 
-    is_log_parameters: bool = True
-    is_log_activations: bool = True
+    def init(self):
+        pass
+
+    def run_step(self):
+        for i in range(self.inner_iterations):
+            with tracker.namespace('sample'):
+                self.sample()
+            with self.mode.update(is_train=True):
+                with tracker.namespace('train'):
+                    self.trainer()
+            if self.validator:
+                with tracker.namespace('valid'):
+                    self.validator()
+
+    def run(self):
+        self.init()
+        _ = self.validator
+        _ = self.trainer
+        for _ in self.training_loop:
+            self.run_step()
+
+    def sample(self):
+        pass
+
+
+@option(TrainValidConfigs.trainer)
+def trainer(c: TrainValidConfigs):
+    return Trainer(name='Train',
+                   mode=c.mode,
+                   data_loader=c.train_loader,
+                   inner_iterations=c.inner_iterations,
+                   state_modules=c.state_modules,
+                   step=c.step)
+
+
+@option(TrainValidConfigs.validator)
+def validator(c: TrainValidConfigs):
+    return Trainer(name='Valid',
+                   mode=c.mode,
+                   data_loader=c.valid_loader,
+                   inner_iterations=c.inner_iterations,
+                   state_modules=c.state_modules,
+                   step=c.step)
+
+
+@option(TrainValidConfigs.loop_count)
+def data_loop_count(c: TrainValidConfigs):
+    return c.epochs
+
+
+class SampleTrainValidConfigs(TrainValidConfigs):
+    optimizer: torch.optim.Adam
+    model: nn.Module
+    device: torch.device
+
+    loss_func: nn.Module
 
     update_batches: int = 1
-    log_params_updates: int = 2 ** 32
-    log_activations_batches: int = 2 ** 32
+    log_params_updates: int = 2 ** 32  # 0 if not
+    log_activations_batches: int = 2 ** 32  # 0 if not
 
-    def init_tracker(self):
-        tracker.set_queue("loss.*", 20, True)
-
-    def prepare_for_iteration(self):
-        if isinstance(self.model, dict):
-            for m in self.model.values():
-                m.train(MODE_STATE.is_train)
-        else:
-            self.model.train(MODE_STATE.is_train)
-
-    def step(self, batch: any, batch_idx: BatchIndex):
-        """Override"""
+    def step(self, batch: Any, batch_idx: BatchIndex):
+        self.model.train(self.mode.is_train)
         data, target = batch[0].to(self.device), batch[1].to(self.device)
 
+        if self.mode.is_train:
+            tracker.add_global_step(len(data))
+
+        is_log_activations = batch_idx.is_interval(self.log_activations_batches)
         with monit.section("model"):
-            with self.mode.update(is_log_activations=batch_idx.is_interval(self.log_activations_batches)):
+            with self.mode.update(is_log_activations=is_log_activations):
                 output = self.model(data)
 
         loss = self.loss_func(output, target)
         tracker.add("loss.", loss)
 
         if self.mode.is_train:
-            tracker.add_global_step(len(data))
-
             with monit.section('backward'):
                 loss.backward()
 
@@ -359,76 +297,19 @@ class TrainValidConfigs(TrainingLoopConfigs):
                     pytorch_utils.store_model_indicators(self.model)
                 self.optimizer.zero_grad()
 
-    def run_step(self):
-        for i in range(self.inner_iterations):
-            with tracker.namespace('sample'):
-                self.sample()
-            with self.mode.update(is_train=True):
-                with tracker.namespace('train'):
-                    self.trainer.trainer()
-            if self.validator:
-                with tracker.namespace('valid'):
-                    self.validator.trainer()
-
-    def run(self):
-        self.init_tracker()
-        _ = self.validator.trainer
-        _ = self.trainer.trainer
-        for _ in self.training_loop:
-            self.run_step()
-
-    def sample(self):
-        pass
+        if self.mode.is_train:
+            if batch_idx.is_interval(self.log_save_batches):
+                tracker.save()
 
 
-@option(TrainValidConfigs.trainer)
-def trainer(c: TrainValidConfigs):
-    conf = TrainerConfigs()
-    conf.name = 'Train'
-    conf.data_loader = c.train_loader
-    conf.is_increment_global_step = True
-    conf.inner_iterations = c.inner_iterations
-    conf.state_modules = c.state_modules
-    conf.prepare_for_iteration = c.prepare_for_iteration
-    conf.step = c.step
-    conf.backward = c.backward
-    conf.optimizer_step = c.optimizer_step
-
-    return conf
+meta_config(SampleTrainValidConfigs.update_batches,
+            SampleTrainValidConfigs.log_params_updates,
+            SampleTrainValidConfigs.log_activations_batches)
 
 
-@option(TrainValidConfigs.validator)
-def validator(c: TrainValidConfigs):
-    conf = TrainerConfigs()
-    conf.name = 'Valid'
-    conf.data_loader = c.valid_loader
-    conf.is_increment_global_step = False
-    conf.log_interval = None
-    conf.update_interval = None
-    conf.inner_iterations = c.inner_iterations
-    conf.state_modules = c.state_modules
-    conf.prepare_for_iteration = c.prepare_for_iteration
-    conf.step = c.step
-    conf.backward = None
-    conf.optimizer_step = None
-
-    return conf
-
-
-@option(TrainValidConfigs.optimizer)
-def _default_optimizer(c: TrainValidConfigs):
+@option(SampleTrainValidConfigs.optimizer)
+def _default_optimizer(c: SampleTrainValidConfigs):
     from labml_helpers.optimizer import OptimizerConfigs
     opt_conf = OptimizerConfigs()
     opt_conf.parameters = c.model.parameters()
     return opt_conf
-
-
-@option(TrainValidConfigs.loop_count)
-def data_loop_count(c: TrainValidConfigs):
-    return c.epochs
-
-
-meta_config(TrainerConfigs.log_interval,
-            TrainerConfigs.update_interval)
-meta_config(TrainValidConfigs.is_log_parameters,
-            TrainValidConfigs.is_log_activations)
