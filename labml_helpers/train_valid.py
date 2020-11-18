@@ -232,7 +232,8 @@ class TrainValidConfigs(TrainingLoopConfigs):
             tracker.save()
 
     def run(self):
-        self.init()
+        with monit.section("Initialize"):
+            self.init()
         _ = self.validator
         _ = self.trainer
         for _ in self.training_loop:
