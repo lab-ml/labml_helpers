@@ -218,7 +218,7 @@ class TrainValidConfigs(TrainingLoopConfigs):
 
     def step(self, batch: Any, batch_idx: BatchIndex):
         raise NotImplementedError
-    
+
     def run_step(self):
         for i in range(self.inner_iterations):
             with tracker.namespace('sample'):
@@ -229,6 +229,7 @@ class TrainValidConfigs(TrainingLoopConfigs):
             if self.validator:
                 with tracker.namespace('valid'):
                     self.validator()
+            tracker.save()
 
     def run(self):
         self.init()
