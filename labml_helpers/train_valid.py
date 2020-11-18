@@ -280,6 +280,9 @@ class SimpleTrainValidConfigs(TrainValidConfigs):
     log_activations_batches: int = 2 ** 32  # 0 if not
     log_save_batches: int = 1
 
+    def init(self):
+        self.state_modules = []
+
     def step(self, batch: Any, batch_idx: BatchIndex):
         self.model.train(self.mode.is_train)
         data, target = batch[0].to(self.device), batch[1].to(self.device)
