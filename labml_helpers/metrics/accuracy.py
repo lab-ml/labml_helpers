@@ -19,9 +19,6 @@ class AccuracyState:
 class Accuracy(Metric):
     data: AccuracyState
 
-    def __init__(self):
-        super().__init__()
-
     def __call__(self, output: torch.Tensor, target: torch.Tensor):
         output = output.view(-1, output.shape[-1])
         target = target.view(-1)
@@ -42,3 +39,13 @@ class Accuracy(Metric):
         if self.data.samples == 0:
             return
         tracker.add("accuracy.", self.data.correct / self.data.samples)
+
+
+class AccuracyDirect(Accuracy):
+    data: AccuracyState
+
+    def __call__(self, output: torch.Tensor, target: torch.Tensor):
+        output = output.view(-1)
+        target = target.view(-1)
+        self.data.correct += output.eq(target).sum().item()
+        self.data.samples += len(target)
