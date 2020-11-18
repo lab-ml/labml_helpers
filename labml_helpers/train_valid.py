@@ -216,6 +216,9 @@ class TrainValidConfigs(TrainingLoopConfigs):
     def init(self):
         pass
 
+    def step(self, batch: Any, batch_idx: BatchIndex):
+        raise NotImplementedError
+    
     def run_step(self):
         for i in range(self.inner_iterations):
             with tracker.namespace('sample'):
