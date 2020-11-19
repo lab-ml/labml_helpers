@@ -208,7 +208,7 @@ class TrainValidConfigs(TrainingLoopConfigs):
     train_loader: torch.utils.data.DataLoader
     valid_loader: torch.utils.data.DataLoader
 
-    loop_count = 'data_loop_count'
+    loop_count = '_data_loop_count'
     loop_step = None
 
     inner_iterations: int = 1
@@ -244,7 +244,7 @@ class TrainValidConfigs(TrainingLoopConfigs):
 
 
 @option(TrainValidConfigs.trainer)
-def trainer(c: TrainValidConfigs):
+def _default_trainer(c: TrainValidConfigs):
     return Trainer(name='Train',
                    mode=c.mode,
                    data_loader=c.train_loader,
@@ -254,7 +254,7 @@ def trainer(c: TrainValidConfigs):
 
 
 @option(TrainValidConfigs.validator)
-def validator(c: TrainValidConfigs):
+def _default_validator(c: TrainValidConfigs):
     return Trainer(name='Valid',
                    mode=c.mode,
                    data_loader=c.valid_loader,
@@ -264,7 +264,7 @@ def validator(c: TrainValidConfigs):
 
 
 @option(TrainValidConfigs.loop_count)
-def data_loop_count(c: TrainValidConfigs):
+def _data_loop_count(c: TrainValidConfigs):
     return c.epochs
 
 
@@ -326,14 +326,3 @@ def _default_optimizer(c: SimpleTrainValidConfigs):
     opt_conf = OptimizerConfigs()
     opt_conf.parameters = c.model.parameters()
     return opt_conf
-
-
-class BatchStepProtocol:
-    pass
-
-
-class BatchStep(BatchStepProtocol):
-    pass
-
-
-MODE_STATE = ModeState()
