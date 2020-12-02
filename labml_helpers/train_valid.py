@@ -308,7 +308,7 @@ class SimpleTrainValidConfigs(TrainValidConfigs):
                 with monit.section('optimize'):
                     self.optimizer.step()
                 if batch_idx.is_interval(self.log_params_updates):
-                    pytorch_utils.store_model_indicators(self.model)
+                    tracker.add('model', self.model)
                 self.optimizer.zero_grad()
 
             if batch_idx.is_interval(self.log_save_batches):
