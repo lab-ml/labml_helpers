@@ -5,7 +5,7 @@ with open("readme.rst", "r") as f:
 
 setuptools.setup(
     name='labml_helpers',
-    version='0.4.62',
+    version='0.4.70',
     author="Varuna Jayasiri, Nipun Wijerathne",
     author_email="vpjayasiri@gmail.com, hnipun@gmail.com",
     description="A collection of classes and functions to automate common deep learning training patterns",
