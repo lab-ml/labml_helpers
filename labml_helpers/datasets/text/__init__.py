@@ -2,7 +2,7 @@ from pathlib import PurePath, Path
 from typing import List, Callable, Dict, Optional
 
 import torch
-from torch.utils.data import IterableDataset
+from torch.utils.data import IterableDataset, Dataset
 
 from labml import monit
 
@@ -83,6 +83,23 @@ class SequentialDataLoader(IterableDataset):
         i = idx + seq_len
         data = self.data[idx: i]
         target = self.data[idx + 1: i + 1]
+        return data, target
+
+
+class SequentialUnBatchedDataset(Dataset):
+    def __init__(self, *, text: str, dataset: TextDataset,
+                 seq_len: int):
+        self.seq_len = seq_len
+        self.data = dataset.text_to_i(text)
+
+    def __len__(self):
+        return (self.data.shape[0] - 1) // self.seq_len
+
+    def __getitem__(self, idx):
+        assert idx + self.seq_len + 1 <= self.data.shape[0]
+        end = idx + self.seq_len
+        data = self.data[idx: end]
+        target = self.data[idx + 1: end + 1]
         return data, target
 
 
