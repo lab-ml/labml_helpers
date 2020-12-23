@@ -22,4 +22,5 @@ class StateModule:
 
 
 class Metric(StateModule, ABC):
-    pass
+    def track(self):
+        pass

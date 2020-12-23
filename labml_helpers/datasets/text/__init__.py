@@ -96,10 +96,11 @@ class SequentialUnBatchedDataset(Dataset):
         return (self.data.shape[0] - 1) // self.seq_len
 
     def __getitem__(self, idx):
-        assert idx + self.seq_len + 1 <= self.data.shape[0]
-        end = idx + self.seq_len
-        data = self.data[idx: end]
-        target = self.data[idx + 1: end + 1]
+        start = idx * self.seq_len
+        assert start + self.seq_len + 1 <= self.data.shape[0]
+        end = start + self.seq_len
+        data = self.data[start: end]
+        target = self.data[start + 1: end + 1]
         return data, target
 
 

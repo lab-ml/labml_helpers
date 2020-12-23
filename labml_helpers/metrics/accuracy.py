@@ -40,6 +40,11 @@ class Accuracy(Metric):
             return
         tracker.add("accuracy.", self.data.correct / self.data.samples)
 
+    def track(self):
+        if self.data.samples == 0:
+            return
+        tracker.add("accuracy.", self.data.correct / self.data.samples)
+
 
 class AccuracyDirect(Accuracy):
     data: AccuracyState
