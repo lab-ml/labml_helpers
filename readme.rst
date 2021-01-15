@@ -14,7 +14,7 @@ Installation
 
 .. code-block:: console
 
-    pip install labml_helpers
+    pip install labml-helpers
 
 Links
 -----
