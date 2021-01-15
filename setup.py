@@ -4,7 +4,7 @@ with open("readme.rst", "r") as f:
     long_description = f.read()
 
 setuptools.setup(
-    name='labml_helpers',
+    name='labml-helpers',
     version='0.4.72',
     author="Varuna Jayasiri, Nipun Wijerathne",
     author_email="vpjayasiri@gmail.com, hnipun@gmail.com",
