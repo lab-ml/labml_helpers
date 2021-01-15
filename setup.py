@@ -11,7 +11,7 @@ setuptools.setup(
     description="A collection of classes and functions to automate common deep learning training patterns",
     long_description=long_description,
     long_description_content_type="text/x-rst",
-    url="https://github.com/lab-ml/labml_helpers",
+    url="https://github.com/lab-ml/helpers",
     project_urls={
         'Documentation': 'https://lab-ml.com/'
     },
