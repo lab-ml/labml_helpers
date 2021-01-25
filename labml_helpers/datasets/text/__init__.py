@@ -5,6 +5,7 @@ import torch
 from torch.utils.data import IterableDataset, Dataset
 
 from labml import monit
+from labml.utils.download import download_file
 
 
 class TextDataset:
@@ -107,17 +108,6 @@ class SequentialUnBatchedDataset(Dataset):
 class TextFileDataset(TextDataset):
     standard_tokens = []
 
-    @staticmethod
-    def download(url: str, path: Path):
-        import urllib.request
-        if not path.parent.exists():
-            path.parent.mkdir(parents=True)
-        with monit.section("Download") as s:
-            def reporthook(count, block_size, total_size):
-                s.progress(count * block_size / total_size)
-
-            urllib.request.urlretrieve(url, path, reporthook=reporthook)
-
     def __init__(self, path: PurePath, tokenizer: Callable, *,
                  url: Optional[str] = None,
                  filter_subset: Optional[int] = None):
@@ -126,7 +116,7 @@ class TextFileDataset(TextDataset):
             if not url:
                 raise FileNotFoundError(str(path))
             else:
-                self.download(url, path)
+                download_file(url, path)
 
         with monit.section("Load data"):
             text = self.load(path)
