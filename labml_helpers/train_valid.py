@@ -119,6 +119,9 @@ class Trainer:
         self.__states = [sm.create_state() for sm in self.state_modules]
         self._batch_index = BatchIndex(len(data_loader), inner_iterations)
 
+    def reset(self):
+        self.__iterable = None
+
     def __call__(self):
         for sm, s in zip(self.state_modules, self.__states):
             sm.set_state(s)
