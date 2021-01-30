@@ -83,7 +83,7 @@ class ForwardHook:
 
     def save(self, name: str, output):
         if isinstance(output, torch.Tensor):
-            pytorch_utils.store_l1_l2(name, output)
+            pytorch_utils.store_var(name, output)
         elif isinstance(output, tuple):
             for i, o in enumerate(output):
                 self.save(f"{name}.{i}", o)
