@@ -1,4 +1,4 @@
-from typing import Generic, TypeVar
+from typing import Generic, TypeVar, Optional
 
 from . import StateModule
 
@@ -6,14 +6,19 @@ T = TypeVar('T')
 
 
 class SimpleState(Generic[T]):
+    state: Optional[T]
+
+    def __init__(self):
+        self.state = None
+
     def get(self) -> T:
-        raise NotImplementedError
+        return self.state
 
     def set(self, data: T):
-        raise NotImplementedError
+        self.state = data
 
     def reset(self):
-        raise NotImplementedError
+        self.state = None
 
 
 class SimpleStateModule(StateModule, Generic[T]):
