@@ -54,7 +54,7 @@ class TextDataset:
 
     def text_to_i(self, text: str) -> torch.Tensor:
         tokens = self.tokenizer(text)
-        return torch.tensor([self.stoi[s] for s in tokens], dtype=torch.long)
+        return torch.tensor([self.stoi[s] for s in tokens if s in self.stoi], dtype=torch.long)
 
     def __repr__(self):
         return f'{len(self.train) / 1_000_000 :,.2f}M, {len(self.valid) / 1_000_000 :,.2f}M - {str(self.path)}'
