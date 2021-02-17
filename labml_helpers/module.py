@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, TypeVar, Iterator, Iterable, Generic
 
 import torch.nn
 
@@ -31,6 +31,36 @@ class Module(torch.nn.Module):
         except StopIteration:
             raise RuntimeError(f"Unable to determine"
                                f" device of {self.__class__.__name__}") from None
+
+
+M = TypeVar('M', bound=torch.nn.Module)
+T = TypeVar('T')
+
+
+class TypedModuleList(torch.nn.ModuleList, Generic[M]):
+    def __getitem__(self, idx: int) -> M:
+        return super().__getitem__(idx)
+
+    def __setitem__(self, idx: int, module: M) -> None:
+        return super().__setitem__(idx, module)
+
+    def __iter__(self) -> Iterator[M]:
+        return super().__iter__()
+
+    def __iadd__(self: T, modules: Iterable[M]) -> T:
+        return super().__iadd__(modules)
+
+    def insert(self, index: int, module: M) -> None:
+        super().insert(index, module)
+
+    def append(self: T, module: M) -> T:
+        return super().append(module)
+
+    def extend(self: T, modules: Iterable[M]) -> T:
+        return super().extend(modules)
+
+    def forward(self):
+        raise NotImplementedError()
 
 
 if __name__ == '__main__':
