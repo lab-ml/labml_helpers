@@ -113,13 +113,16 @@ class Trainer:
         self.mode = mode
         self.name = name
         self.step = step
-        self.data_loader = data_loader
         self.state_modules = state_modules
         self.__iterable = None
         self.__states = [sm.create_state() for sm in self.state_modules]
-        self._batch_index = BatchIndex(len(data_loader), inner_iterations)
+        self.inner_iterations = inner_iterations
+        self.data_loader = data_loader
+        self._batch_index = BatchIndex(len(data_loader), self.inner_iterations)
 
-    def reset(self):
+    def set_data_loader(self, data_loader: torch.utils.data.DataLoader):
+        self.data_loader = data_loader
+        self._batch_index = BatchIndex(len(data_loader), self.inner_iterations)
         self.__iterable = None
 
     def __call__(self):
