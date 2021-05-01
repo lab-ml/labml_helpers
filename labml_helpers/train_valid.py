@@ -118,7 +118,7 @@ class Trainer:
         self.__states = [sm.create_state() for sm in self.state_modules]
         self.inner_iterations = inner_iterations
         self.data_loader = data_loader
-        self._batch_index = BatchIndex(len(data_loader), self.inner_iterations)
+        self._batch_index = BatchIndex(len(self.data_loader), self.inner_iterations)
 
     def set_data_loader(self, data_loader: torch.utils.data.DataLoader):
         self.data_loader = data_loader
@@ -131,7 +131,7 @@ class Trainer:
 
         if self.__iterable is None or self._batch_index.completed:
             self.__iterable = iter(self.data_loader)
-            self._batch_index.reset()
+            self._batch_index.reset(len(self.data_loader), self.inner_iterations)
             for sm in self.state_modules:
                 sm.on_epoch_start()
         with torch.set_grad_enabled(self.mode.is_train):
@@ -197,7 +197,9 @@ class BatchIndex:
     def step_inner(self):
         self.iteration += 1
 
-    def reset(self):
+    def reset(self, total: int, total_iterations: int):
+        self.total = total
+        self.total_iterations = total_iterations
         self.idx = 0
         self.iteration = 0
 
