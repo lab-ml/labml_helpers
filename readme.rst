@@ -1,4 +1,4 @@
-⚠️ This repo is moved to `labml/helpers<https://github.com/labmlai/labml/tree/master/helpers>`_
+⚠️ This repo is moved to `labml/helpers <https://github.com/labmlai/labml/tree/master/helpers>`_
 ==============================================================================================
 
 .. image:: https://badge.fury.io/py/labml-helpers.svg
@@ -30,19 +30,4 @@ Links
 `📑 Articles & Tutorials <https://medium.com/@labml/>`_
 
 `👨‍🏫 Samples <https://github.com/lab-ml/samples>`_
-
-
-Citing LabML
-------------
-
-If you use LabML for academic research, please cite the library using the following BibTeX entry.
-
-.. code-block:: bibtex
-
-	@misc{labml,
-	 author = {Varuna Jayasiri, Nipun Wijerathne},
-	 title = {LabML: A library to organize machine learning experiments},
-	 year = {2020},
-	 url = {https://lab-ml.com/},
-	}
 
