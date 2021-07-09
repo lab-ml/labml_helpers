@@ -1,10 +1,14 @@
+⚠️ This repo is moved to [labml/helpers](https://github.com/labmlai/labml/tree/master/helpers)
+=============================================================================================
+
 .. image:: https://badge.fury.io/py/labml-helpers.svg
     :target: https://badge.fury.io/py/labml-helpers
 .. image:: https://pepy.tech/badge/labml_helpers
     :target: https://pepy.tech/project/labml_helpers
 
-LabML Helpers
-=============
+labml.ai library helpers
+========================
+
 
 This is a collection of classes and functions to automate common deep learning training patterns. This was originally part of 
 `labml <https://github.com/lab-ml/labml>`_, and was moved out as it grew larger.
