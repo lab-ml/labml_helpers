@@ -1,4 +1,4 @@
-⚠️ This repo is moved to `labml/helpers<https://github.com/labmlai/labml/tree/master/helpers>_`
+⚠️ This repo is moved to `labml/helpers<https://github.com/labmlai/labml/tree/master/helpers>`_
 ==============================================================================================
 
 .. image:: https://badge.fury.io/py/labml-helpers.svg
